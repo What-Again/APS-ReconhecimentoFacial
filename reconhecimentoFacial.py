@@ -1,19 +1,19 @@
-import cv2  # Importa a biblioteca OpenCV para manipulação de imagens
-import face_recognition as fr  # Importa a biblioteca face_recognition para reconhecimento facial
-from sklearn import neighbors  # Importa o KNeighbors para classificação
+import cv2
+import face_recognition as fr
+from sklearn import neighbors
 import pickle
 import os
+import numpy as np
 
 # Caminho onde o modelo KNN será salvo ou carregado
 model_path = "modelo_knn.clf"
 n_neighbors = 3  # Número de vizinhos para o KNN
+testePath = "teste.jpeg" # imagem para ser testada
 
-
-# Função para carregar dados de treinamento e treinar o modelo KNN
 def load_training_data(dataset_path):
     """
     Carrega as imagens dos colaboradores, extrai os encodings faciais e
-    associa cada encoding ao papel correspondente (ex: Gerente, Administradora).
+    associa cada encoding ao papel correspondente.
     """
     encodings = []
     labels = []
@@ -36,37 +36,39 @@ def load_training_data(dataset_path):
                 encodings.append(face_encodings[0])  # Salva o encoding
                 labels.append(papel)  # Salva o papel correspondente (classe)
 
-    return encodings, labels  # Retorna os encodings e labels para treinamento
+    return encodings, labels
 
+# Treina o modelo ou carrega o modelo existente
+def train_or_load_model(dataset_path):
 
-# Verifica se o modelo já foi treinado anteriormente
-if not os.path.isfile(model_path):
-    # Treina o modelo se ele não estiver salvo
-    print("Treinando o modelo KNN...")
-    encodings, labels = load_training_data("dataset/")  # Carrega os dados de treinamento
+    #Treina o modelo KNN ou carrega um modelo existente.
+    if not os.path.isfile(model_path):
+        print("Treinando o modelo KNN...")
+        encodings, labels = load_training_data(dataset_path)
 
-    # Inicializa o classificador KNN e o treina com os encodings e labels
-    knn_clf = neighbors.KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='ball_tree', weights='distance')
-    knn_clf.fit(encodings, labels)  # Treina o modelo com os dados de treinamento
+        # Inicializa o classificador KNN e o treina com os encodings e labels
+        knn_clf = neighbors.KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='ball_tree', weights='distance')
+        knn_clf.fit(encodings, labels)
 
-    # Salva o modelo treinado para uso posterior
-    with open(model_path, 'wb') as f:
-        pickle.dump(knn_clf, f)
-    print("Modelo KNN treinado e salvo com sucesso!")
-else:
-    print("Modelo KNN já existente. Carregando o modelo...")
+        with open(model_path, 'wb') as f:
+            pickle.dump(knn_clf, f)
+        print("Modelo KNN treinado e salvo com sucesso!")
+        return knn_clf
+    else:
+        print("Modelo KNN já existente. Carregando o modelo...")
+        with open(model_path, 'rb') as f:
+            return pickle.load(f)
 
-
-# Função para reconhecer uma nova pessoa usando o modelo treinado
-def recognize_person_knn(image, model_path):
+def recognize_person_knn(image, knn_clf, distance_threshold=0.9):
     """
-    Usa o modelo KNN treinado para prever o papel de uma pessoa
-    em uma imagem fornecida.
+    # Usa o modelo KNN treinado para prever o papel de uma pessoa recebendo a
+    imagem, o modelo KNN e o nivel de aceitação para o modelo.
+    
+    :param image: Imagem a ser analisada
+    :param knn_clf: Modelo KNN treinado
+    :param distance_threshold: Limiar de distância para considerar um rosto conhecido
+    :return: Papel reconhecido ou 'Desconhecido'
     """
-    # Carrega o modelo KNN salvo
-    with open(model_path, 'rb') as f:
-        knn_clf = pickle.load(f)
-
     # Codifica a imagem fornecida
     face_encodings = fr.face_encodings(image)
 
@@ -74,34 +76,48 @@ def recognize_person_knn(image, model_path):
     if len(face_encodings) == 0:
         return "Nenhum rosto encontrado na imagem."
 
-    # Usa o modelo para prever o papel do rosto na imagem
-    prediction = knn_clf.predict([face_encodings[0]])
-
+    # Obtém o primeiro rosto da imagem
+    face_encoding = face_encodings[0]
+    # Calcula as distâncias para os vizinhos mais próximos
+    closest_distances = knn_clf.kneighbors([face_encoding], n_neighbors=n_neighbors)
+    # Verifica se a distância do vizinho mais próximo está dentro do limiar aceitável
+    if closest_distances[0][0][0] > distance_threshold:
+        return "Desconhecido"
+    
+    prediction = knn_clf.predict([face_encoding])
     return prediction[0]
 
+# Exemplo de uso
+def main():
+    knn_clf = train_or_load_model("dataset/")
 
-# Carrega a imagem e converte para RGB
-img = fr.load_image_file('teste.jpg')  # Imagem para ser testada
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Carrega a imagem e converte para RGB
+    img = fr.load_image_file(testePath)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-# Detecta a localização do rosto
-faceLoc = fr.face_locations(img)[0]  # Encontra a localização da face e pega a primeira detecção
-cv2.rectangle(img, (faceLoc[3], faceLoc[0]), (faceLoc[1], faceLoc[2]), (0, 255, 0), 2)
+    face_locations = fr.face_locations(img)
+    
+    if len(face_locations) > 0:
+        faceLoc = face_locations[0]
+        
+        # Reconhece a pessoa na imagem usando o modelo KNN
+        papel = recognize_person_knn(img, knn_clf)
+        
+        # Desenha retângulo ao redor do rosto
+        cv2.rectangle(img, (faceLoc[3], faceLoc[0]), (faceLoc[1], faceLoc[2]), (0, 255, 0), 2)
+        
+        # Exibe o papel reconhecido
+        cv2.putText(img, papel, (faceLoc[3], faceLoc[0] - 10), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        
+    cv2.imshow("Imagem", img)
+    # Salva o papel em um arquivo de texto
+    with open("output.txt", "w") as f:
+        f.write(papel)
+    # Executa o script de controle de acesso
+    exec(open("cofreAps.py").read())
 
-# Reconhece a pessoa na imagem usando o modelo KNN
-papel = recognize_person_knn(img, model_path)
-print(f"Papel reconhecido: {papel}")
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-# Exibe a imagem com o papel reconhecido sobreposto
-cv2.putText(img, papel, (faceLoc[3], faceLoc[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-cv2.imshow("Imagem", img)
-
-# Salva o papel reconhecido em um arquivo de texto e executa o cofreAps.py
-with open("output.txt", "w") as f:
-    f.write(papel)
-# Nivel de permisão da pessoa analisada.
-exec(open("cofreAps.py").read())
-
-# Aguarda uma tecla para fechar as janelas
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+main()
