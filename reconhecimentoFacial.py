@@ -10,41 +10,38 @@ model_path = "modelo_knn.clf"
 n_neighbors = 3  # Número de vizinhos para o KNN
 testePath = "teste.jpeg" # imagem para ser testada
 
-def load_training_data(dataset_path):
-    """
-    Carrega as imagens dos colaboradores, extrai os encodings faciais e
-    associa cada encoding ao papel correspondente.
-    """
+def carregar_modelo(dataset_path):
+    # Carrega as imagens dos, extrai os rostos e associa cada rosto a um papel
     encodings = []
     labels = []
 
-    # Percorre cada pasta do dataset (cada pasta representa um papel)
+    # Percorre cada pasta do dataset sendo cada pasta um papel)
     for papel in os.listdir(dataset_path):
         pasta_papel = os.path.join(dataset_path, papel)
 
-        if not os.path.isdir(pasta_papel):  # Ignora arquivos que não são pastas
+        if not os.path.isdir(pasta_papel):
             continue
 
         # Itera sobre cada imagem na pasta do papel
         for imagem_file in os.listdir(pasta_papel):
             imagem_path = os.path.join(pasta_papel, imagem_file)
             imagem = fr.load_image_file(imagem_path)  # Carrega a imagem
-            face_encodings = fr.face_encodings(imagem)  # Extrai o encoding
+            face_encodings = fr.face_encodings(imagem)  # Extrai os rostos
 
             # Verifica se a imagem possui pelo menos um rosto
             if len(face_encodings) > 0:
-                encodings.append(face_encodings[0])  # Salva o encoding
-                labels.append(papel)  # Salva o papel correspondente (classe)
+                encodings.append(face_encodings[0])  
+                labels.append(papel) 
 
     return encodings, labels
 
 # Treina o modelo ou carrega o modelo existente
-def train_or_load_model(dataset_path):
+def treinar_modelo(dataset_path):
 
     #Treina o modelo KNN ou carrega um modelo existente.
     if not os.path.isfile(model_path):
         print("Treinando o modelo KNN...")
-        encodings, labels = load_training_data(dataset_path)
+        encodings, labels = carregar_modelo(dataset_path)
 
         # Inicializa o classificador KNN e o treina com os encodings e labels
         knn_clf = neighbors.KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='ball_tree', weights='distance')
@@ -59,17 +56,10 @@ def train_or_load_model(dataset_path):
         with open(model_path, 'rb') as f:
             return pickle.load(f)
 
-def recognize_person_knn(image, knn_clf, distance_threshold=0.9):
-    """
-    # Usa o modelo KNN treinado para prever o papel de uma pessoa recebendo a
-    imagem, o modelo KNN e o nivel de aceitação para o modelo.
+def define_pessoa(image, knn_clf, distance_threshold=0.2):
+    # Usa o modelo KNN treinado para definir o papel de uma pessoa recebendo a
+    #imagem, o modelo KNN e o nivel de aceitação para o modelo.
     
-    :param image: Imagem a ser analisada
-    :param knn_clf: Modelo KNN treinado
-    :param distance_threshold: Limiar de distância para considerar um rosto conhecido
-    :return: Papel reconhecido ou 'Desconhecido'
-    """
-    # Codifica a imagem fornecida
     face_encodings = fr.face_encodings(image)
 
     # Verifica se a imagem contém pelo menos um rosto
@@ -87,22 +77,26 @@ def recognize_person_knn(image, knn_clf, distance_threshold=0.9):
     prediction = knn_clf.predict([face_encoding])
     return prediction[0]
 
-# Exemplo de uso
 def main():
-    knn_clf = train_or_load_model("dataset/")
-
+    knn_clf = treinar_modelo("dataset/")
+    # seta o tamanho maximo da imagem e recebe o tamanho da imagem atual
     # Carrega a imagem e converte para RGB
     img = fr.load_image_file(testePath)
+    max_width = 1920
+    max_height = 1080
+    height, width, _ = img.shape
+    # Verifica se a imagem precisa ser redimensionada
+    if width > max_width or height > max_height:
+        scale_factor = min(max_width / width, max_height / height)
+        img = cv2.resize(img, (int(width * scale_factor), int(height * scale_factor)))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     face_locations = fr.face_locations(img)
     
     if len(face_locations) > 0:
         faceLoc = face_locations[0]
-        
         # Reconhece a pessoa na imagem usando o modelo KNN
-        papel = recognize_person_knn(img, knn_clf)
-        
+        papel = define_pessoa(img, knn_clf)
         # Desenha retângulo ao redor do rosto
         cv2.rectangle(img, (faceLoc[3], faceLoc[0]), (faceLoc[1], faceLoc[2]), (0, 255, 0), 2)
         
