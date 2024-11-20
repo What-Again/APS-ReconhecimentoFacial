@@ -19,7 +19,7 @@ pip install -r requirements.txt
 ```
 
 ## Uso
-Colocar um arquivo "teste.jpg"(imagem a ser analisada) dentro da pasta, caso o arquivo seja de outra extensão alterar na variavel imgPath reconhecimentoFacial.py. Antes de rodar o programa pela primeira vez deletar modelo_knn.clf por conta da possibilidade de conflito, um novo modelo sera treinado ao inicializar reconhecimentoFacial.py.
+Colocar um arquivo "teste.jpg"(imagem a ser analisada) dentro da pasta, caso o arquivo seja de outra extensão alterar na variavel testePath reconhecimentoFacial.py. Antes de rodar o programa pela primeira vez deletar modelo_knn.clf por conta da possibilidade de conflito, um novo modelo sera treinado ao inicializar reconhecimentoFacial.py.
 
 ## Como rodar
 Iniciar reconhecimentoFacial.py.
