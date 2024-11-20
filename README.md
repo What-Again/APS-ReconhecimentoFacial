@@ -3,7 +3,7 @@
 ## Descrição
 Projeto Universitario para reconhecimento facial desenvolvido em python.
 
-## Dependencias nescessarias.
+## Dependencias Utilizadas.
 - Python 3.10*
 - pip
 - dlib 19.22.99
@@ -19,4 +19,7 @@ pip install -r requirements.txt
 ```
 
 ## Uso
-Antes de rodar o programa pela primeira vez deletar modelo_knn.clf por conta da possibilidade de conflito, um novo modelo sera treinado ao inicializar reconhecimentoFacial.py.
+Colocar um arquivo "teste.jpg"(imagem a ser analisada) dentro da pasta, caso o arquivo seja de outra extensão alterar na variavel imgPath reconhecimentoFacial.py. Antes de rodar o programa pela primeira vez deletar modelo_knn.clf por conta da possibilidade de conflito, um novo modelo sera treinado ao inicializar reconhecimentoFacial.py.
+
+## Como rodar
+Iniciar reconhecimentoFacial.py.
