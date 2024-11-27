@@ -19,8 +19,7 @@ pip install -r requirements.txt
 ```
 
 ## Uso
-Deletar o Modelo knn caso a versão do numpy ser diferente da versão do requirements.text.
-Rodar reconhecimentoFacial.py pra iniciar o programa, para parar precionar a letra Q no teclado.
+Deletar o Modelo knn caso a versão do numpy ser diferente da versão do requirements.text, para parar precionar a letra Q no teclado.
 
 ## Como rodar
 Iniciar reconhecimentoFacial.py.
