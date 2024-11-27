@@ -7,6 +7,13 @@ import numpy as np
 
 # Caminho onde o modelo KNN será salvo ou carregado
 model_path = "modelo_knn.clf"
+n_neighbors = 3
+
+def carregar_modelo(dataset_path):
+     # Carrega as imagens dos, extrai os rostos e associa cada rosto a um papel
+    encodings = []
+    labels = []
+     # Percorre cada pasta do dataset sendo cada pasta um papel)
 n_neighbors = 3  # Número de vizinhos para o KNN
 testePath = "teste.jpeg" # imagem para ser testada
 
@@ -22,6 +29,20 @@ def carregar_modelo(dataset_path):
         if not os.path.isdir(pasta_papel):
             continue
 
+
+        for imagem_file in os.listdir(pasta_papel):
+            imagem_path = os.path.join(pasta_papel, imagem_file)
+            imagem = fr.load_image_file(imagem_path)
+            face_encodings = fr.face_encodings(imagem)
+            # Verifica se a imagem possui pelo menos um rosto
+            if len(face_encodings) > 0:
+                encodings.append(face_encodings[0])  
+                labels.append(papel)
+                print(f"Loaded face for {papel} from {imagem_file}")
+
+    print(f"Total faces loaded: {len(encodings)}")
+    print(f"Unique labels: {set(labels)}")
+
         # Itera sobre cada imagem na pasta do papel
         for imagem_file in os.listdir(pasta_papel):
             imagem_path = os.path.join(pasta_papel, imagem_file)
@@ -32,6 +53,7 @@ def carregar_modelo(dataset_path):
             if len(face_encodings) > 0:
                 encodings.append(face_encodings[0])  
                 labels.append(papel) 
+
 
     return encodings, labels
 
@@ -56,6 +78,29 @@ def treinar_modelo(dataset_path):
         with open(model_path, 'rb') as f:
             return pickle.load(f)
 
+
+def define_pessoa(image, knn_clf, distance_threshold=0.4):
+    face_encodings = fr.face_encodings(image)
+     # Usa o modelo KNN treinado para definir o papel de uma pessoa recebendo a
+     #imagem, o modelo KNN e o nivel de aceitação para o modelo.
+
+    if len(face_encodings) == 0:
+        print("Nenhum rosto encontrado na imagem.")
+        return "Nenhum rosto encontrado"
+
+    face_encoding = face_encodings[0]
+    closest_distances = knn_clf.kneighbors([face_encoding], n_neighbors=n_neighbors)
+    
+    print(f"Closest distances: {closest_distances[0][0]}")
+    print(f"Distance threshold: {distance_threshold}")
+    # Verifica se a distância do vizinho mais próximo está dentro do limiar aceitável
+    if closest_distances[0][0][0] > distance_threshold:
+        print("Acima do limiar de distância. Considerado desconhecido.")
+        return "Desconhecido"
+    
+    prediction = knn_clf.predict([face_encoding])
+    print(f"Predicted label: {prediction[0]}")
+    
 def define_pessoa(image, knn_clf, distance_threshold=0.2):
     # Usa o modelo KNN treinado para definir o papel de uma pessoa recebendo a
     #imagem, o modelo KNN e o nivel de aceitação para o modelo.
@@ -79,6 +124,31 @@ def define_pessoa(image, knn_clf, distance_threshold=0.2):
 
 def main():
     knn_clf = treinar_modelo("dataset/")
+    cap = cv2.VideoCapture(0)
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        rgb_frame = frame[:, :, ::-1]
+        face_locations = fr.face_locations(rgb_frame)
+        
+        if len(face_locations) > 0:
+            faceLoc = face_locations[0]
+            papel = define_pessoa(rgb_frame, knn_clf)
+            # Desenha retângulo ao redor do rosto
+            cv2.rectangle(frame, (faceLoc[3], faceLoc[0]), (faceLoc[1], faceLoc[2]), (0, 255, 0), 2)
+            cv2.putText(frame, papel, (faceLoc[3], faceLoc[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        
+        cv2.imshow("Reconhecimento Facial", frame)
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
+
     # seta o tamanho maximo da imagem e recebe o tamanho da imagem atual
     # Carrega a imagem e converte para RGB
     img = fr.load_image_file(testePath)
